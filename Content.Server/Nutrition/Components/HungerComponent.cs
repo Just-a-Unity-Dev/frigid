@@ -1,4 +1,8 @@
+using Content.Server.Administration.Logs;
 using Content.Shared.Alert;
+using Content.Shared.Damage;
+using Content.Shared.Database;
+using Content.Shared.MobState.Components;
 using Content.Shared.Movement.Components;
 using Content.Shared.Movement.Systems;
 using Content.Shared.Nutrition.Components;
@@ -21,7 +25,7 @@ namespace Content.Server.Nutrition.Components
             set => _baseDecayRate = value;
         }
         [DataField("baseDecayRate")]
-        private float _baseDecayRate = 0.01666666666f;
+        private float _baseDecayRate = 0.1f;
 
         [ViewVariables(VVAccess.ReadWrite)]
         public float ActualDecayRate
@@ -45,6 +49,7 @@ namespace Content.Server.Nutrition.Components
             set => _currentHunger = value;
         }
         private float _currentHunger;
+        private float _accumulatedFrameTime;
 
         [ViewVariables(VVAccess.ReadOnly)]
         public Dictionary<HungerThreshold, float> HungerThresholds => _hungerThresholds;
@@ -63,6 +68,10 @@ namespace Content.Server.Nutrition.Components
             { HungerThreshold.Starving, AlertType.Starving },
             { HungerThreshold.Dead, AlertType.Starving },
         };
+
+        [DataField("damage", required: true)]
+        [ViewVariables(VVAccess.ReadWrite)]
+        public DamageSpecifier Damage = default!;
 
         public void HungerThresholdEffect(bool force = false)
         {
@@ -160,6 +169,22 @@ namespace Content.Server.Nutrition.Components
         {
             UpdateFood(- frametime * ActualDecayRate);
             UpdateCurrentThreshold();
+
+            if (_currentHungerThreshold != HungerThreshold.Dead && _currentHungerThreshold != HungerThreshold.Starving)
+                return;
+            // --> Current Hunger is below dead threshold
+
+            if (!_entMan.TryGetComponent(Owner, out MobStateComponent? mobState))
+                return;
+            if (!mobState.IsDead())
+            {
+                // --> But they are not dead yet.
+                _accumulatedFrameTime += frametime;
+                if (_accumulatedFrameTime >= 1)
+                {
+                    EntitySystem.Get<DamageableSystem>().TryChangeDamage(Owner, Damage * (int) _accumulatedFrameTime * 4, true);
+                }
+            }
         }
 
         private void UpdateCurrentThreshold()
@@ -168,6 +193,12 @@ namespace Content.Server.Nutrition.Components
             // _trySound(calculatedThreshold);
             if (calculatedHungerThreshold != _currentHungerThreshold)
             {
+                var logManager = IoCManager.Resolve<IAdminLogManager>();
+                if (_currentHungerThreshold == HungerThreshold.Dead)
+                    logManager.Add(LogType.Hunger, $"{_entMan.ToPrettyString(Owner):entity} has stopped starving");
+                else if (calculatedHungerThreshold == HungerThreshold.Dead)
+                    logManager.Add(LogType.Hunger, $"{_entMan.ToPrettyString(Owner):entity} has started starving");
+
                 _currentHungerThreshold = calculatedHungerThreshold;
                 HungerThresholdEffect();
                 Dirty();
