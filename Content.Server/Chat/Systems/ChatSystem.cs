@@ -133,8 +133,8 @@ public sealed partial class ChatSystem : SharedChatSystem
         if (!CanSendInGame(message, shell, player))
             return;
 
-        bool shouldCapitalize = (desiredType != InGameICChatType.Emote);
-        bool shouldPunctuate = _configurationManager.GetCVar(CCVars.ChatPunctuation);
+        var shouldCapitalize = (desiredType != InGameICChatType.Emote) && _configurationManager.GetCVar(CCVars.ChatAutocapitalize);
+        var shouldPunctuate = _configurationManager.GetCVar(CCVars.ChatPunctuation);
 
         message = SanitizeInGameICMessage(source, message, out var emoteStr, shouldCapitalize, shouldPunctuate);
 

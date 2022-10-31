@@ -1166,6 +1166,12 @@ namespace Content.Shared.CCVar
             CVarDef.Create("ic.punctuation", false, CVar.SERVER);
 
         /// <summary>
+        /// Automatically capitalizes the first letter in the message.
+        /// </summary>
+        public static readonly CVarDef<bool> ChatAutocapitalize =
+            CVarDef.Create("ic.autocapitalize", true, CVar.SERVER);
+
+        /// <summary>
         /// Enables automatically forcing IC name rules. Uppercases the first letter of the first and last words of the name
         /// </summary>
         public static readonly CVarDef<bool> ICNameCase =
